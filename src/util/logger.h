@@ -8,8 +8,10 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <fstream>
 
 #include "util.h"
+#include "hlist.h"
 #include "thread/semaphore.h"
 
 namespace htoolkit {
@@ -26,8 +28,7 @@ namespace htoolkit {
 
     /**
      * 日志上下文类
-     * 用于存储日志信息
-     * 包括日志级别、日志所在文件名、函数名、行号、用户待输出的日志信息
+     * 用于存储日志信息, 包括日志级别、日志所在文件名、函数名、行号、用户待输出的日志信息
      */
     class logContext : public std::ostringstream {
     private:
@@ -53,7 +54,55 @@ namespace htoolkit {
      * 日志通道类
      * 该类是一个抽象类, 且是所有特定类型通道的基类
      */
-    class logChannel {
+    class logChannel : public noncopyable {
+    protected:
+        std::string _name;
+        logLevel _level;
+    public:
+        logChannel(const std::string &name, logLevel level = LTrace);
+        virtual ~logChannel();
+
+        virtual void write(const logger &logger, const logContextPtr &ctx) = 0;
+        const std::string &name() const;
+        void setLevel(logLevel level);
+        static std::string printTime(const timeval &tv);
+    protected:
+        /**
+         * 打印日志到输出流
+         * @param logger
+         * @param ost 输出流
+         * @param ctx
+         * @param enable_color 是否启用颜色
+         * @param enable_detail 是否打印细节(函数名、源码文件名、源码行)
+         */
+        virtual void format(const logger &logger, std::ostream &ost, const logContext &ctx, bool enable_color = true,
+                            bool enable_detail = true);
+    };
+
+    /* 输出日志到广播 */
+    class eventChannel : public logChannel {
+    public:
+        static const std::string kBroadcastLogEvent; // 输出日志时的广播名
+
+
+        eventChannel(const std::string &name = "eventChannel", logLevel level = LTrace);
+        ~eventChannel() override = default;
+
+        void write(const logger &logger, const logContextPtr &ctx) override;
+
+    };
+
+    /* 输出日志到终端 */
+    class consoleChannel : public logChannel {
+
+    };
+
+    /* 输出日志到文件 */
+    class fileChannelBase : public logChannel {
+
+    };
+
+    class fileChannel : public fileChannelBase {
 
     };
 
@@ -140,6 +189,17 @@ namespace htoolkit {
         std::shared_ptr<std::thread> _thread;
 
     };
+
+    /**
+     * 用法:
+     * DebugL << 1 << "+" << 2 << '=' << 3;
+     */
+#define WriteL(level)::htoolkit::logContextCapture(::htoolkit::getLogger(), level, __FILE__, __FUNCTION__, __LINE__)
+#define TraceL WriteL(::htoolkit::LTrace)
+#define DebugL WriteL(::htoolkit::LDebug)
+#define InfoL WriteL(::htoolkit::LInfo)
+#define WarnL WriteL(::htoolkit::LWrite)
+#define ErrorL WriteL(:htoolkit::LError)
 
 } // namespace htoolkit
 

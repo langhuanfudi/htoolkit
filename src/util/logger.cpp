@@ -2,11 +2,47 @@
 // Created by hxh on 2022/5/15.
 //
 
+#include <sys/stat.h>
+#include <cstdarg>
+#include <iostream>
+
 #include "logger.h"
+#include "onceToken.h"
+#include "hfile.h"
+
+#if defined(__MACH__) || ((defined(__linux) || defined(__linux__)) && !defined(ANDROID))
+
+#include <sys/syslog.h>
+
+#endif // defined(__MACH__) || ((defined(__linux) || defined(__linux__)) && !defined(ANDROID))
 
 using namespace std;
 
 namespace htoolkit {
+    /**
+     * logContext
+     */
+    static inline const char *getFileName(const char *file) {
+        auto pos = std::strrchr(file, '/');
+        return pos ? pos + 1 : file;
+    }
+
+    static inline const char *getFunctionName(const char *function) {
+        auto pos = std::strrchr(function, ':');
+        return pos ? pos + 1 : function;
+    }
+
+    logContext::logContext(logLevel level, const char *file, const char *function, int line, const char *module_name)
+            : _level(level), _line(line), _file(getFileName(file)), _function(getFunctionName(function)),
+              _module_name(module_name) {
+        gettimeofday(&_tv, nullptr);
+        _thread_name = getThreadName();
+    }
+
+
+    /**
+     * logger
+     */
     logger *g_defaultLogger = nullptr;
 
     logger &getlogger() {

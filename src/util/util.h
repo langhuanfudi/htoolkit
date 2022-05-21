@@ -1,8 +1,23 @@
 #ifndef HTOOLKIT_UTIL_H
 #define HTOOLKIT_UTIL_H
 
+#include <ctime>
+#include <cstdio>
+#include <cstring>
+#include <memory>
 #include <string>
 #include <sstream>
+#include <vector>
+#include <atomic>
+#include <unordered_map>
+
+#if defined(_WIN32)
+#else
+#include <unistd.h>
+#include <sys/time.h>
+#include <sys/types.h>
+#include <cstddef>
+#endif // defined(_WIN32)
 
 #define INSTANCE_IMP(class_name, ...) \
 class_name &class_name::Instance() { \
@@ -27,6 +42,12 @@ namespace htoolkit {
     std::string exePath(bool isExe = true);
     std::string exeDir(bool isExe = true);
     std::string exeName(bool isExe = true);
+
+    /* 设置线程名 */
+    void setThreadName(const char *name);
+
+    /* 获取线程名 */
+    std::string getThreadName();
 
 } // htoolkit
 

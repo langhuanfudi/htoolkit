@@ -24,7 +24,7 @@ namespace htoolkit {
         ~semaphore() {}
         void post(size_t n = 1);
         void wait();
-    }
+    };
 };
 
 

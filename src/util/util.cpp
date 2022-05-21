@@ -52,28 +52,15 @@ namespace htoolkit {
 
     std::string exePath(bool isExe) {
         char buffer[PATH_MAX * 2 + 1] = {0};
-        int n = -1;
-#if defined(_WIN32)
-        n = 0;
-#elif defined(__MACH__) || defined(__APPLE__)
-        n = sizeof(buffer);
-        if (uv_exepath(buffer, &n) != 0) { // 有错误
+        int n = sizeof(buffer);
+        if (uv_exepath(buffer, &n) != 0) { // TODO: error
             n = -1;
         }
-#elif defined(__linux__)
-        n = 0;
-#endif
         std::string filePath;
         if (n <= 0)
             filePath = "./";
         else
             filePath = buffer;
-#if defined(_WIN32)
-        for (auto &ch: filePath){
-            if (ch == '\\')
-                ch = '/';
-        }
-#endif // defined(_WIN32)
         return filePath;
     }
 
@@ -85,6 +72,32 @@ namespace htoolkit {
     std::string exeName(bool isExe /* = True */) {
         auto path = exePath(isExe);
         return path.substr(0, path.rfind('/') + 1);
+    }
+
+    static std::string limitString(const char *name, size_t max_size) {
+        std::string str = name;
+        if (str.size() + 1 > max_size) {
+            auto erased = str.size() + 1 - max_size + 3;
+            str.replace(5, erased, "...");
+        }
+        return str;
+    }
+
+    void setThreadName(const char *name) {
+        assert(name);
+        pthread_setname_np(limitString(name, 32).data());
+    }
+
+    std::string getThreadName() {
+        std::string ret;
+        ret.resize(32);
+        auto tid = pthread_self();
+        pthread_getname_np(tid, (char *) ret.data(), ret.size());
+        if (ret[0]) {
+            ret.resize(strlen(ret.data()));
+            return ret;
+        }
+        return std::to_string((uint64_t) tid);
     }
 
 } // htoolkit
