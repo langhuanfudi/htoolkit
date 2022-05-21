@@ -14,9 +14,7 @@
 
 #include <sys/syslog.h>
 
-#endif // defined(__MACH__) || ((defined(__linux) || defined(__linux__)) && !defined(ANDROID))
-
-using namespace std;
+#endif
 
 namespace htoolkit {
     /**
@@ -39,6 +37,13 @@ namespace htoolkit {
         _thread_name = getThreadName();
     }
 
+    const std::string &logContext::str() {
+        if (_got_content)
+            return _content;
+        _content = std::ostringstream::str();
+        _got_content = true;
+        return _content;
+    }
 
     /**
      * logger
@@ -64,7 +69,10 @@ namespace htoolkit {
     }
 
     logger::~logger() {
-
+        _writer.reset();
+        {
+//            logContextCapture(*this, LInfo,);
+        }
     }
 
     void logger::add(const std::shared_ptr<logChannel> &channel) {
@@ -81,6 +89,49 @@ namespace htoolkit {
 
     void logger::write(const logContextPtr &ctx) {
 
+    }
+
+    /**
+     * asyncLogWriter: logWriter
+     */
+    asyncLogWriter::asyncLogWriter() : _exit_flag(false) {
+        _thread = std::make_shared<std::thread>([this]() {
+            this->run();
+        });
+    }
+
+    asyncLogWriter::~asyncLogWriter() {
+        _exit_flag = true;
+        _sem.post();
+        _thread->join();
+        flushAll();
+    }
+
+    void asyncLogWriter::run() {
+        setThreadName("async log");
+        while (!_exit_flag) {
+            _sem.wait();
+            flushAll();
+        }
+    }
+
+    void asyncLogWriter::flushAll() {
+        decltype(_pending) tmp;
+        {
+            std::lock_guard<std::mutex> lock(_mutex);
+            tmp.swap(_pending);
+        }
+        tmp.for_each([&](std::pair<logContextPtr, logger *> &pr) {
+            pr.second->writeChannels(pr.first);
+        });
+    }
+
+    void asyncLogWriter::write(const logContextPtr &ctx, logger &_logger) {
+        {
+            std::lock_guard<std::mutex> lock(_mutex);
+            _pending.emplace_back(std::make_pair(ctx, &_logger));
+        }
+        _sem.post();
     }
 
 } // namespace htoolkit

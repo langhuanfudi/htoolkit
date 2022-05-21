@@ -5,10 +5,12 @@
 #ifndef HTOOLKIT_LOGGER_H
 #define HTOOLKIT_LOGGER_H
 
+#include <set>
 #include <map>
 #include <memory>
 #include <mutex>
 #include <fstream>
+#include <thread>
 
 #include "util.h"
 #include "hlist.h"
@@ -169,6 +171,7 @@ namespace htoolkit {
      * 该类是一个抽象类，定义了一个write纯虚函数
      */
     class logWriter : public noncopyable {
+    public:
         logWriter() = default;
         virtual ~logWriter() = default;
         virtual void write(const logContextPtr &ctx, logger &_logger) = 0;
@@ -187,7 +190,7 @@ namespace htoolkit {
         semaphore _sem;
         std::mutex _mutex;
         std::shared_ptr<std::thread> _thread;
-
+        hlist<std::pair<logContextPtr, logger *>> _pending;
     };
 
     /**
